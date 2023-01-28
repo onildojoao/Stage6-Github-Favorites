@@ -1,34 +1,54 @@
+import { GithubUser } from "./GithubUser.js"
+
 //Classe que vai conter a lógica dos dados (como eles serão estruturados)
 export class Favorites {
   constructor(root) {
     this.root = document.querySelector(root)
     this.load()
+
+    //O método é estático, então não precisa do construtor new
+    /* GithubUser.search("onildojoao").then((user) => console.log(user)) */
   }
 
   load() {
-    const entries = [
-      {
-        login: "onildojoao",
-        name: "Onildo João",
-        public_repos: "50",
-        followers: "100",
-      },
-      {
-        login: "maykbrito",
-        name: "Mayk Brito",
-        public_repos: "76",
-        followers: "9589",
-      },
-    ]
-
-    this.entries = entries
+    this.entries = JSON.parse(localStorage.getItem("@github-favorites:")) || []
   }
+
+  save() {
+    localStorage.setItem("@github-favorites:", JSON.stringify(this.entries))
+  }
+
+  async add(username) {
+    try {
+      const userExists = this.entries.find((entry) => entry.login === username)
+
+      if (userExists) {
+        throw new Error("Usuário já cadastrado!")
+      }
+
+      const githubUser = await GithubUser.search(username)
+
+      if (githubUser.login === undefined) {
+        throw new Error("Usuário não encontrado!")
+      }
+      this.entries = [...this.entries, githubUser]
+      this.update()
+      this.save()
+
+      console.log(this.entries)
+    } catch (error) {
+      alert(error)
+    }
+  }
+
   delete(user) {
     const filteredEntries = this.entries.filter(
       (entry) => entry.login !== user.login
     )
 
-    console.log(filteredEntries)
+    this.entries = filteredEntries
+    this.update()
+    this.save()
   }
 }
 //Classe que vai criar a visualização e eventos do html
@@ -39,6 +59,18 @@ export class FavoritesView extends Favorites {
     this.tbody = this.root.querySelector("table tbody")
 
     this.update()
+
+    this.onadd()
+  }
+
+  onadd() {
+    const addButton = this.root.querySelector(".search button")
+
+    addButton.onclick = () => {
+      const { value } = this.root.querySelector(".search input")
+
+      this.add(value)
+    }
   }
 
   update() {
@@ -58,6 +90,10 @@ export class FavoritesView extends Favorites {
       ).alt = `Foto do perfil do Github de ${user.name}`
 
       createdRow.querySelector(".user span").textContent = user.login
+
+      createdRow.querySelector(
+        ".user a"
+      ).href = `https://github.com/${user.login}`
 
       createdRow.querySelector(".followers").textContent = user.followers
 
